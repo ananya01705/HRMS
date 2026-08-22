@@ -1,39 +1,40 @@
-"""
-Owned by Person B: bridges Postgres LISTEN/NOTIFY to the WebSocket broadcast layer.
-
-Steps to implement:
-1. Open a dedicated asyncpg connection (separate from the SQLAlchemy pool below).
-2. await conn.add_listener("attendance_channel", on_attendance_notify)
-3. In the callback, parse the JSON payload (sent by the pg_notify trigger) and
-   call app.api.websocket.broadcast(...) with the relevant data.
-4. Start this listener from the FastAPI lifespan in app/main.py.
-
-Matching Postgres trigger (add this in an Alembic migration):
-
-    CREATE OR REPLACE FUNCTION notify_attendance() RETURNS trigger AS $$
-    BEGIN
-        PERFORM pg_notify('attendance_channel', row_to_json(NEW)::text);
-        RETURN NEW;
-    END;
-    $$ LANGUAGE plpgsql;
-
-    CREATE TRIGGER attendance_notify_trigger
-    AFTER INSERT OR UPDATE ON attendance
-    FOR EACH ROW EXECUTE FUNCTION notify_attendance();
-"""
-
+import json
 import asyncpg
-
 from app.core.config import settings
+from app.api.websocket import broadcast
 
 
 async def start_listener():
-    raw_dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
-    conn = await asyncpg.connect(raw_dsn)
+    try:
+        raw_dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
+        conn = await asyncpg.connect(raw_dsn)
 
-    async def on_attendance_notify(connection, pid, channel, payload):
-        # TODO(Person B): parse payload (JSON string), broadcast over websocket
-        print(f"Notification on {channel}: {payload}")
+        async def on_attendance_notify(connection, pid, channel, payload):
+            try:
+                data = json.loads(payload)
+                await broadcast({
+                    "event": "ATTENDANCE_UPDATE",
+                    "channel": channel,
+                    "data": data,
+                })
+            except Exception as e:
+                print(f"[WebSocket Broadcast Error] {e}")
 
-    await conn.add_listener("attendance_channel", on_attendance_notify)
-    return conn
+        async def on_leave_notify(connection, pid, channel, payload):
+            try:
+                data = json.loads(payload)
+                await broadcast({
+                    "event": "LEAVE_UPDATE",
+                    "channel": channel,
+                    "data": data,
+                })
+            except Exception as e:
+                print(f"[WebSocket Broadcast Error] {e}")
+
+        await conn.add_listener("attendance_channel", on_attendance_notify)
+        await conn.add_listener("leave_channel", on_leave_notify)
+        print("Postgres LISTEN triggers registered on attendance_channel and leave_channel")
+        return conn
+    except Exception as e:
+        print(f"Postgres notify listener could not start: {e}")
+        return None

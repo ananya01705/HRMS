@@ -1,4 +1,19 @@
-from app.models.user import User  # noqa: F401
+from app.models.user import User, UserRole
+from app.models.attendance import Attendance, AttendanceStatus
+from app.models.leave import LeaveRequest, LeaveBalance, LeaveType, LeaveStatus
+from app.models.payroll import Payroll, PayrollStatus
+from app.models.audit import AuditLog
 
-# Person B: import Attendance, LeaveRequest models here once created
-# Person C: import Payroll model here once created
+__all__ = [
+    "User",
+    "UserRole",
+    "Attendance",
+    "AttendanceStatus",
+    "LeaveRequest",
+    "LeaveBalance",
+    "LeaveType",
+    "LeaveStatus",
+    "Payroll",
+    "PayrollStatus",
+    "AuditLog",
+]

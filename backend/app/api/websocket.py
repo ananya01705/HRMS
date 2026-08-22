@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 router = APIRouter()
@@ -7,17 +8,26 @@ active_connections: list[WebSocket] = []
 
 @router.websocket("/ws/live")
 async def websocket_endpoint(websocket: WebSocket):
-    """Owned by Person B. Frontend connects here for live attendance/leave updates."""
     await websocket.accept()
     active_connections.append(websocket)
     try:
         while True:
-            await websocket.receive_text()  # keep-alive ping from client
+            data = await websocket.receive_text()
+            # Respond to ping/heartbeat
+            if data == "ping":
+                await websocket.send_text("pong")
     except WebSocketDisconnect:
-        active_connections.remove(websocket)
+        if websocket in active_connections:
+            active_connections.remove(websocket)
 
 
 async def broadcast(message: dict):
-    """Called from the LISTEN/NOTIFY callback in services/notify_listener.py"""
+    disconnected = []
     for connection in active_connections:
-        await connection.send_json(message)
+        try:
+            await connection.send_json(message)
+        except Exception:
+            disconnected.append(connection)
+    for conn in disconnected:
+        if conn in active_connections:
+            active_connections.remove(conn)
