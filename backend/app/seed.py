@@ -96,7 +96,7 @@ async def seed_data():
         for user in created_users:
             # 1. Leave Balance
             bal_res = await db.execute(select(LeaveBalance).where(LeaveBalance.user_id == user.id))
-            if not bal_res.scalar_one_or_none():
+            if not bal_res.scalars().first():
                 bal = LeaveBalance(
                     user_id=user.id,
                     year=today.year,
@@ -109,7 +109,7 @@ async def seed_data():
 
             # 2. Past 14 days attendance history
             att_res = await db.execute(select(Attendance).where(Attendance.user_id == user.id))
-            if not att_res.scalars().all():
+            if not att_res.scalars().first():
                 for day_offset in range(1, 15):
                     past_date = today - timedelta(days=day_offset)
                     if past_date.weekday() < 5:  # Weekday
@@ -128,7 +128,7 @@ async def seed_data():
 
             # 3. Sample Leave Requests
             lr_res = await db.execute(select(LeaveRequest).where(LeaveRequest.user_id == user.id))
-            if not lr_res.scalars().all():
+            if not lr_res.scalars().first():
                 if user.role == UserRole.employee:
                     l_req = LeaveRequest(
                         user_id=user.id,
@@ -143,7 +143,7 @@ async def seed_data():
 
             # 4. Sample Payroll
             pay_res = await db.execute(select(Payroll).where(Payroll.user_id == user.id))
-            if not pay_res.scalars().all():
+            if not pay_res.scalars().first():
                 basic = user.basic_salary or 85000.0
                 hra = round(basic * 0.40, 2)
                 allowances = round(basic * 0.15, 2)
