@@ -1,27 +1,20 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
 import { useAuth } from "../shared/context/AuthContext";
 import {
-  LayoutDashboard,
-  Users,
   Clock,
-  CalendarDays,
+  CalendarCheck,
   CreditCard,
-  ShieldCheck,
   LogOut,
   Building2,
 } from "lucide-react";
 
-export const Sidebar = () => {
+export const Sidebar = ({ activeTab, setActiveTab }) => {
   const { user, logout } = useAuth();
 
   const navItems = [
-    { label: "Dashboard", path: "/", icon: LayoutDashboard, roles: ["admin", "hr_officer", "employee"] },
-    { label: "Employee Directory", path: "/employees", icon: Users, roles: ["admin", "hr_officer"] },
-    { label: "Attendance Tracker", path: "/attendance", icon: Clock, roles: ["admin", "hr_officer", "employee"] },
-    { label: "Leave Management", path: "/leave", icon: CalendarDays, roles: ["admin", "hr_officer", "employee"] },
-    { label: "Payroll & Salary", path: "/payroll", icon: CreditCard, roles: ["admin", "hr_officer", "employee"] },
-    { label: "Audit & Compliance", path: "/audit", icon: ShieldCheck, roles: ["admin", "hr_officer"] },
+    { id: "attendance", label: "Attendance & Time-Off", icon: Clock, roles: ["admin", "hr_officer", "employee"] },
+    { id: "approvals", label: "HR Leave Approvals", icon: CalendarCheck, roles: ["admin", "hr_officer"] },
+    { id: "payroll", label: "Payroll & Analytics", icon: CreditCard, roles: ["admin", "hr_officer", "employee"] },
   ];
 
   const allowedItems = navItems.filter((item) => item.roles.includes(user?.role));
@@ -54,25 +47,24 @@ export const Sidebar = () => {
           </div>
         </div>
 
-        {/* Navigation Links */}
+        {/* Navigation Items */}
         <nav className="px-3 space-y-1 mt-2">
           {allowedItems.map((item) => {
             const Icon = item.icon;
+            const isActive = activeTab === item.id;
             return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-                    isActive
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
-                  }`
-                }
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                  isActive
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
                 <span>{item.label}</span>
-              </NavLink>
+              </button>
             );
           })}
         </nav>

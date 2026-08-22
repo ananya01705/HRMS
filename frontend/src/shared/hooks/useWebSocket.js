@@ -1,64 +1,57 @@
 import { useEffect, useState, useRef } from "react";
 
-export const useWebSocket = () => {
-  const [messages, setMessages] = useState([]);
-  const [connected, setConnected] = useState(false);
-  const socketRef = useRef(null);
+export function useWebSocket(onMessageCallback) {
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastMessage, setLastMessage] = useState(null);
+  const wsRef = useRef(null);
 
   useEffect(() => {
-    const wsUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000")
-      .replace("http://", "ws://")
-      .replace("https://", "wss://") + "/ws/live";
+    const wsUrl = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws/live";
+    let socket;
 
-    let ws = null;
-    let pingInterval = null;
-
-    const connect = () => {
+    function connect() {
       try {
-        ws = new WebSocket(wsUrl);
-        socketRef.current = ws;
+        socket = new WebSocket(wsUrl);
+        wsRef.current = socket;
 
-        ws.onopen = () => {
-          setConnected(true);
-          pingInterval = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send("ping");
-            }
-          }, 20000);
+        socket.onopen = () => {
+          setIsConnected(true);
         };
 
-        ws.onmessage = (event) => {
-          if (event.data === "pong") return;
+        socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            setMessages((prev) => [data, ...prev.slice(0, 19)]);
-          } catch (err) {
-            console.error("WebSocket message parse error:", err);
+            setLastMessage(data);
+            if (onMessageCallback) {
+              onMessageCallback(data);
+            }
+          } catch (e) {
+            console.error("Failed to parse WebSocket message:", event.data);
           }
         };
 
-        ws.onclose = () => {
-          setConnected(false);
-          if (pingInterval) clearInterval(pingInterval);
-          setTimeout(connect, 5000);
+        socket.onclose = () => {
+          setIsConnected(false);
+          // Try reconnecting after 3 seconds
+          setTimeout(connect, 3000);
         };
 
-        ws.onerror = (err) => {
-          console.error("WebSocket error:", err);
-          ws.close();
+        socket.onerror = () => {
+          setIsConnected(false);
         };
-      } catch (e) {
-        console.error("WebSocket connection failure:", e);
+      } catch (err) {
+        setIsConnected(false);
       }
-    };
+    }
 
     connect();
 
     return () => {
-      if (pingInterval) clearInterval(pingInterval);
-      if (ws) ws.close();
+      if (socket) {
+        socket.close();
+      }
     };
   }, []);
 
-  return { connected, messages };
-};
+  return { isConnected, lastMessage };
+}

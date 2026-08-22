@@ -1,91 +1,136 @@
-# Dayflow HRMS — hackathon starter
+# Dayflow HRMS — Real-Time Enterprise HR Management System
 
-FastAPI + async SQLAlchemy + PostgreSQL + React (Vite/Tailwind), fully dockerized.
+> Built for Hackathon Excellence | **FastAPI** + **Async SQLAlchemy** + **PostgreSQL** + **React (Vite/Tailwind)** | Fully Dockerized
 
-## Quick start
+Dayflow HRMS is a high-performance, scalable Human Resource Management System designed with zero third-party API dependencies. It leverages native PostgreSQL capabilities (**`LISTEN/NOTIFY` triggers**, **JSONB audit trails**, and **window function analytics**) to deliver real-time data streaming and predictive HR insights.
 
-```bash
-cp .env.example .env   # already done, edit SECRET_KEY if you like
-docker compose up --build
+---
+
+## 🌟 Key Highlights & Innovative Features
+
+### ⚡ 1. PostgreSQL-Native Real-Time Event Pipeline (Zero Redis/RabbitMQ)
+Instead of relying on external message brokers, Dayflow utilizes PostgreSQL's native `LISTEN / NOTIFY` pub/sub engine. 
+- Database triggers automatically broadcast JSON payloads on table events (`check_in`, `check_out`, `leave_applied`, `leave_reviewed`).
+- A background Python listener streams these events to connected clients via WebSockets (`ws://localhost:8000/ws/live`).
+
+### 📊 2. Predictive "Burnout Risk Index" (Pure SQL Analytics)
+Computes real-time employee fatigue scores (`Low`, `Medium`, `High`, `Critical`) using SQL window logic:
+- Analyzes 30-day overtime accumulation, 90-day leave utilization, and 14-day consecutive work shifts.
+- Generates actionable HR recommendations (e.g., *"Mandatory 3-day time-off recommended"*).
+
+### 🛡️ 3. Immutable JSONB System Audit Trail
+- Automated triggers record all schema mutations (`INSERT`, `UPDATE`, `DELETE`) on salary, roles, and leave approvals into a PostgreSQL `audit_log` table.
+- Stores exact `old_data` and `new_data` snapshots in JSONB for complete enterprise data governance.
+
+### 🔑 4. 1-Click Demo Login Presets
+Includes rapid login shortcuts directly on the authentication screen for instant judging evaluation:
+- 👑 **Admin**: `admin@dayflow.com` / `admin123`
+- 👔 **HR Officer**: `hr@dayflow.com` / `hr123`
+- 🧑‍💻 **Employee**: `alex@dayflow.com` / `emp123`
+
+---
+
+## 🏗️ Architecture & Technology Stack
+
+```
+                               ┌───────────────────────────┐
+                               │     React + Tailwind UI   │
+                               └─────────────┬─────────────┘
+                                             │ REST API / WebSockets
+                               ┌─────────────▼─────────────┐
+                               │  FastAPI (Async Uvicorn)  │
+                               └─────────────┬─────────────┘
+                                             │ Async SQLAlchemy
+                               ┌─────────────▼─────────────┐
+                               │  PostgreSQL 15 (Docker)   │
+                               │  - LISTEN / NOTIFY        │
+                               │  - JSONB Audit Triggers   │
+                               └───────────────────────────┘
 ```
 
-- Backend: http://localhost:8000 (docs at /docs)
-- Frontend: http://localhost:5173
-- Postgres: localhost:5432 (user/pass in .env)
+| Layer | Technology |
+| :--- | :--- |
+| **Frontend** | React 18, Vite, Tailwind CSS, Lucide Icons, Axios |
+| **Backend** | Python 3.11, FastAPI, Async SQLAlchemy, Pydantic v2, PyJWT |
+| **Database** | PostgreSQL 15 (PostgreSQL Triggers & Functions) |
+| **Containerization** | Docker, Docker Compose |
 
-Run migrations once the containers are up:
+---
+
+## 🚀 Quick Start Guide
+
+### Option A: Run with Docker Compose (Recommended)
+
+Start the database, backend API, and frontend client in isolated containers:
 
 ```bash
-docker compose exec backend alembic revision --autogenerate -m "init"
+# 1. Copy environment configuration
+cp .env.example .env
+
+# 2. Spin up all Docker containers
+docker compose up --build -d
+
+# 3. Apply database migrations & seed initial demo data
 docker compose exec backend alembic upgrade head
+docker compose exec backend python -m app.seed
 ```
 
-## Folder structure
+- **Frontend App**: [http://localhost:5173](http://localhost:5173)
+- **FastAPI OpenAPI Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **PostgreSQL Database**: `localhost:5432`
 
-```
-backend/app/
-  core/         config, db session, security (JWT, password hashing)
-  models/       SQLAlchemy models — one file per domain
-  schemas/      Pydantic request/response schemas
-  api/          FastAPI routers — one file per domain
-  services/     business logic, the LISTEN/NOTIFY bridge lives here
+---
 
-frontend/src/
-  modules/auth/                owned by Person A
-  modules/attendance-leave/    owned by Person B
-  modules/payroll-analytics/   owned by Person C
-  shared/api/client.js         axios instance with auth header, reuse this
-```
+### Option B: Local Manual Setup (Without Docker)
 
-## Hour 0-2: agree on this schema before splitting off
+#### **1. Backend Setup**
+```bash
+cd backend
+python -m venv .venv
 
-Core tables everyone's work depends on — nail these down together first.
+# Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
 
-```
-users            id, employee_code, email, hashed_password, full_name, role, is_verified, created_at
-attendance       id, user_id (FK), date, check_in, check_out, status
-leave_requests   id, user_id (FK), leave_type, start_date, end_date, status, remarks, reviewed_by
-payroll          id, user_id (FK), basic_salary, allowances, deductions, effective_from
-audit_log        id, table_name, record_id, action, changed_by, changed_at, old_data, new_data (jsonb)
+# Linux / macOS:
+source .venv/bin/activate
+
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Keep `role` as an enum (`admin`, `hr_officer`, `employee`) — RLS policies and route guards both key off it.
+#### **2. Frontend Setup**
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-## Task ownership
+---
 
-### Person A — Foundation, auth & security ✅ implemented in this scaffold
-- `backend/app/api/auth.py` — signup/login/me are fully implemented, not stubs
-- `backend/app/api/deps.py` — `get_current_user`, `require_roles(...)`, and `get_scoped_db`
-  (the RLS-aware DB dependency) are all implemented
-- `backend/sql/audit_trigger.sql` — run once after your first migration
-- `backend/sql/rls_policies.sql` — run once Person B's attendance/leave tables exist
+## 📑 API Route Summary
 
-**Your build order for the day:**
-1. `docker compose up --build`, confirm `/docs` loads
-2. `docker compose exec backend alembic revision --autogenerate -m "init"` then `alembic upgrade head`
-3. Test signup → login → `/api/auth/me` with a real token in `/docs`
-4. Run `audit_trigger.sql` against the db (`docker compose exec db psql -U hrms_user -d hrms_db -f /dev/stdin < backend/sql/audit_trigger.sql`)
-5. Build `frontend/src/modules/auth/` (login/signup forms, store the token, redirect on success)
-6. Once B has pushed `attendance`/`leave_requests` models and migrated: run `rls_policies.sql`,
-   tell B/C to swap `Depends(get_db)` for `Depends(get_scoped_db)` on their protected routes
-7. Add employee profile view/edit endpoints + page (extend `User` model with address/phone as editable fields)
-8. For the rest of the day: you're the integration point — help B/C wire `get_scoped_db` and `require_roles` into their routers
+| Endpoint | Method | Role | Description |
+| :--- | :--- | :--- | :--- |
+| `/api/auth/signup` | `POST` | Public | Register new user account |
+| `/api/auth/login` | `POST` | Public | Obtain OAuth2 JWT access token |
+| `/api/auth/me` | `GET` | Authenticated | Fetch current profile |
+| `/api/attendance/today-status` | `GET` | Authenticated | Get current shift clock-in state |
+| `/api/attendance/check-in` | `POST` | Authenticated | Record daily start shift |
+| `/api/attendance/check-out` | `POST` | Authenticated | Record daily end shift & calculate hours |
+| `/api/leave/balances` | `GET` | Authenticated | View remaining leave days |
+| `/api/leave/apply` | `POST` | Authenticated | Submit new leave application |
+| `/api/leave/all-requests` | `GET` | Admin / HR | View company leave queue |
+| `/api/leave/{id}/review` | `POST` | Admin / HR | Approve or reject leave request |
+| `/api/analytics/burnout-risk` | `GET` | Admin / HR | Fetch employee burnout risk scores |
+| `/api/analytics/audit-logs` | `GET` | Admin / HR | Fetch PostgreSQL JSONB mutation history |
+| `/ws/live` | `WS` | All | Real-time PostgreSQL event stream |
 
-### Person B — Attendance, leave & real-time layer
-- New models: `Attendance`, `LeaveRequest` in `backend/app/models/`
-- `backend/app/api/attendance.py`, `backend/app/api/leave.py` — implement the TODOs
-- `backend/app/services/notify_listener.py` — the pg_notify trigger + listener (steps are commented in the file)
-- `backend/app/api/websocket.py` — wire `broadcast()` into the listener callback
-- `frontend/src/modules/attendance-leave/` — check-in/out UI, leave form, live dashboard using a WebSocket hook
+---
 
-### Person C — Payroll, analytics & frontend polish
-- New model: `Payroll` in `backend/app/models/`
-- `backend/app/api/payroll.py` — implement the TODOs, including the burnout-score query
-- A materialized view for reporting (add via Alembic migration)
-- Server-side payslip PDF generation
-- `frontend/src/modules/payroll-analytics/` — payroll views, charts (recharts), overall Tailwind theme consistency across all three modules
+## 🔒 Security & Code Standards
 
-## Notes
-- All backend TODOs are marked with `TODO(Person X)` — grep for your name to find your starting points.
-- The websocket endpoint is at `ws://localhost:8000/ws/live` — frontend just needs to open it and re-render on message.
-- Don't skip the hour 14-16 integration checkpoint from the plan — merge early, merge often.
+- **Role-Based Access Control (RBAC)**: Strict route dependencies (`require_roles("admin", "hr_officer")`).
+- **Row-Level Security Ready**: Scoped database sessions (`get_scoped_db`).
+- **Password Hashing**: Bcrypt salted password hashing.
+- **JWT Authorization**: Signed bearer token validation.
