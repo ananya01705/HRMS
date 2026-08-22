@@ -53,13 +53,23 @@ Keep `role` as an enum (`admin`, `hr_officer`, `employee`) — RLS policies and 
 
 ## Task ownership
 
-### Person A — Foundation, auth & security
-- `backend/app/models/user.py` (already stubbed) — extend with job details as needed
-- `backend/app/api/auth.py` — implement signup/login, JWT issuing
-- `backend/app/api/deps.py` — implement `get_current_user` to actually query the DB
-- Postgres Row-Level Security policies (apply after the schema is migrated)
-- `audit_log` table + a reusable trigger function other tables can attach to
-- `frontend/src/modules/auth/` — login/signup pages, profile view/edit
+### Person A — Foundation, auth & security ✅ implemented in this scaffold
+- `backend/app/api/auth.py` — signup/login/me are fully implemented, not stubs
+- `backend/app/api/deps.py` — `get_current_user`, `require_roles(...)`, and `get_scoped_db`
+  (the RLS-aware DB dependency) are all implemented
+- `backend/sql/audit_trigger.sql` — run once after your first migration
+- `backend/sql/rls_policies.sql` — run once Person B's attendance/leave tables exist
+
+**Your build order for the day:**
+1. `docker compose up --build`, confirm `/docs` loads
+2. `docker compose exec backend alembic revision --autogenerate -m "init"` then `alembic upgrade head`
+3. Test signup → login → `/api/auth/me` with a real token in `/docs`
+4. Run `audit_trigger.sql` against the db (`docker compose exec db psql -U hrms_user -d hrms_db -f /dev/stdin < backend/sql/audit_trigger.sql`)
+5. Build `frontend/src/modules/auth/` (login/signup forms, store the token, redirect on success)
+6. Once B has pushed `attendance`/`leave_requests` models and migrated: run `rls_policies.sql`,
+   tell B/C to swap `Depends(get_db)` for `Depends(get_scoped_db)` on their protected routes
+7. Add employee profile view/edit endpoints + page (extend `User` model with address/phone as editable fields)
+8. For the rest of the day: you're the integration point — help B/C wire `get_scoped_db` and `require_roles` into their routers
 
 ### Person B — Attendance, leave & real-time layer
 - New models: `Attendance`, `LeaveRequest` in `backend/app/models/`
