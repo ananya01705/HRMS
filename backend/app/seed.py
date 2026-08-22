@@ -91,76 +91,84 @@ async def seed_data():
         res = await db.execute(select(User))
         created_users = res.scalars().all()
 
-        # Seed leave balances & past attendance/leave records
+        # Seed leave balances & past attendance/leave records for all users
         today = date.today()
         for user in created_users:
-            # Balance
-            bal = LeaveBalance(
-                user_id=user.id,
-                year=today.year,
-                paid_allocated=24.0,
-                paid_used=3.0 if user.role == UserRole.employee else 1.0,
-                sick_allocated=12.0,
-                sick_used=1.0,
-            )
-            db.add(bal)
-
-            # Past 14 days attendance
-            for day_offset in range(1, 15):
-                past_date = today - timedelta(days=day_offset)
-                if past_date.weekday() < 5:  # Weekday
-                    check_in = datetime.combine(past_date, datetime.min.time()).replace(hour=9, minute=0)
-                    check_out = datetime.combine(past_date, datetime.min.time()).replace(hour=17, minute=30)
-                    att = Attendance(
-                        user_id=user.id,
-                        date=past_date,
-                        check_in=check_in,
-                        check_out=check_out,
-                        work_hours=8.5,
-                        status=AttendanceStatus.present,
-                        notes="Automated biometric sync",
-                    )
-                    db.add(att)
-
-            # Sample Leave Requests
-            if user.role == UserRole.employee:
-                l_req = LeaveRequest(
+            # 1. Leave Balance
+            bal_res = await db.execute(select(LeaveBalance).where(LeaveBalance.user_id == user.id))
+            if not bal_res.scalar_one_or_none():
+                bal = LeaveBalance(
                     user_id=user.id,
-                    leave_type=LeaveType.paid,
-                    start_date=today + timedelta(days=5),
-                    end_date=today + timedelta(days=7),
-                    days_count=3.0,
-                    reason="Annual family vacation",
-                    status=LeaveStatus.pending,
+                    year=today.year,
+                    paid_allocated=24.0,
+                    paid_used=3.0 if user.role == UserRole.employee else 1.0,
+                    sick_allocated=12.0,
+                    sick_used=1.0,
                 )
-                db.add(l_req)
+                db.add(bal)
 
-            # Sample Payroll
-            basic = user.basic_salary
-            hra = round(basic * 0.40, 2)
-            allowances = round(basic * 0.15, 2)
-            gross = basic + hra + allowances
-            pf = round(basic * 0.12, 2)
-            tax = round(gross * 0.10, 2)
-            net = round(gross - pf - tax, 2)
+            # 2. Past 14 days attendance history
+            att_res = await db.execute(select(Attendance).where(Attendance.user_id == user.id))
+            if not att_res.scalars().all():
+                for day_offset in range(1, 15):
+                    past_date = today - timedelta(days=day_offset)
+                    if past_date.weekday() < 5:  # Weekday
+                        check_in = datetime.combine(past_date, datetime.min.time()).replace(hour=9, minute=0)
+                        check_out = datetime.combine(past_date, datetime.min.time()).replace(hour=17, minute=30)
+                        att = Attendance(
+                            user_id=user.id,
+                            date=past_date,
+                            check_in=check_in,
+                            check_out=check_out,
+                            work_hours=8.5,
+                            status=AttendanceStatus.present,
+                            notes="Automated biometric sync",
+                        )
+                        db.add(att)
 
-            payroll = Payroll(
-                user_id=user.id,
-                month=today.month,
-                year=today.year,
-                basic_salary=basic,
-                hra=hra,
-                allowances=allowances,
-                gross_salary=gross,
-                tax_deduction=tax,
-                pf_deduction=pf,
-                unpaid_leave_deduction=0.0,
-                net_salary=net,
-                payable_days=30,
-                unpaid_days=0,
-                status=PayrollStatus.processed,
-            )
-            db.add(payroll)
+            # 3. Sample Leave Requests
+            lr_res = await db.execute(select(LeaveRequest).where(LeaveRequest.user_id == user.id))
+            if not lr_res.scalars().all():
+                if user.role == UserRole.employee:
+                    l_req = LeaveRequest(
+                        user_id=user.id,
+                        leave_type=LeaveType.paid,
+                        start_date=today + timedelta(days=5),
+                        end_date=today + timedelta(days=7),
+                        days_count=3.0,
+                        reason="Annual family vacation",
+                        status=LeaveStatus.pending,
+                    )
+                    db.add(l_req)
+
+            # 4. Sample Payroll
+            pay_res = await db.execute(select(Payroll).where(Payroll.user_id == user.id))
+            if not pay_res.scalars().all():
+                basic = user.basic_salary or 85000.0
+                hra = round(basic * 0.40, 2)
+                allowances = round(basic * 0.15, 2)
+                gross = basic + hra + allowances
+                pf = round(basic * 0.12, 2)
+                tax = round(gross * 0.10, 2)
+                net = round(gross - pf - tax, 2)
+
+                payroll = Payroll(
+                    user_id=user.id,
+                    month=today.month,
+                    year=today.year,
+                    basic_salary=basic,
+                    hra=hra,
+                    allowances=allowances,
+                    gross_salary=gross,
+                    tax_deduction=tax,
+                    pf_deduction=pf,
+                    unpaid_leave_deduction=0.0,
+                    net_salary=net,
+                    payable_days=30,
+                    unpaid_days=0,
+                    status=PayrollStatus.processed,
+                )
+                db.add(payroll)
 
         await db.commit()
         print("Database successfully seeded with demo users, attendance history, leaves, and payroll records!")
