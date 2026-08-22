@@ -19,7 +19,7 @@ DEMO_USERS = [
     {
         "employee_code": "EMP-2026-002",
         "email": "hr@dayflow.com",
-        "password": "hr12345",
+        "password": "hr123",
         "full_name": "Marcus Sterling (HR Lead)",
         "role": UserRole.hr_officer,
         "department": "Human Resources",
@@ -29,7 +29,7 @@ DEMO_USERS = [
     {
         "employee_code": "EMP-2026-003",
         "email": "alex@dayflow.com",
-        "password": "emp12345",
+        "password": "emp123",
         "full_name": "Alex Mercer",
         "role": UserRole.employee,
         "department": "Engineering",
@@ -39,7 +39,7 @@ DEMO_USERS = [
     {
         "employee_code": "EMP-2026-004",
         "email": "sarah@dayflow.com",
-        "password": "emp12345",
+        "password": "emp123",
         "full_name": "Sarah Connor",
         "role": UserRole.employee,
         "department": "Engineering",
@@ -49,7 +49,7 @@ DEMO_USERS = [
     {
         "employee_code": "EMP-2026-005",
         "email": "david@dayflow.com",
-        "password": "emp12345",
+        "password": "emp123",
         "full_name": "David Kim",
         "role": UserRole.employee,
         "department": "Product & Design",
@@ -66,27 +66,25 @@ async def seed_data():
     async with AsyncSessionLocal() as db:
         print("Checking existing database users...")
         res = await db.execute(select(User))
-        existing_users = res.scalars().all()
-        if existing_users:
-            print("Database already contains user records. Seeding skipped.")
-            return
-
-        print("Seeding demo users...")
-        created_users = []
+        existing_users = {u.email: u for u in res.scalars().all()}
+        
         for udata in DEMO_USERS:
-            user = User(
-                employee_code=udata["employee_code"],
-                email=udata["email"],
-                hashed_password=hash_password(udata["password"]),
-                full_name=udata["full_name"],
-                role=udata["role"],
-                department=udata["department"],
-                designation=udata["designation"],
-                basic_salary=udata["basic_salary"],
-                is_verified=True,
-            )
-            db.add(user)
-            created_users.append(user)
+            if udata["email"] in existing_users:
+                # Update password to match updated credentials
+                existing_users[udata["email"]].hashed_password = hash_password(udata["password"])
+            else:
+                user = User(
+                    employee_code=udata["employee_code"],
+                    email=udata["email"],
+                    hashed_password=hash_password(udata["password"]),
+                    full_name=udata["full_name"],
+                    role=udata["role"],
+                    department=udata["department"],
+                    designation=udata["designation"],
+                    basic_salary=udata["basic_salary"],
+                    is_verified=True,
+                )
+                db.add(user)
         await db.commit()
 
         # Re-fetch users for IDs
