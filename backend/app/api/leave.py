@@ -26,7 +26,15 @@ async def get_or_create_balance(user_id: uuid.UUID, year: int, db: AsyncSession)
     )
     bal = result.scalar_one_or_none()
     if not bal:
-        bal = LeaveBalance(user_id=user_id, year=year, paid_allocated=24.0, sick_allocated=12.0)
+        bal = LeaveBalance(
+            user_id=user_id,
+            year=year,
+            paid_allocated=24.0,
+            paid_used=0.0,
+            sick_allocated=12.0,
+            sick_used=0.0,
+            unpaid_used=0.0,
+        )
         db.add(bal)
         await db.commit()
         await db.refresh(bal)
@@ -40,15 +48,21 @@ async def get_my_balances(
 ):
     current_year = date.today().year
     bal = await get_or_create_balance(current_user.id, current_year, db)
+    paid_alloc = bal.paid_allocated if bal.paid_allocated is not None else 24.0
+    paid_u = bal.paid_used if bal.paid_used is not None else 0.0
+    sick_alloc = bal.sick_allocated if bal.sick_allocated is not None else 12.0
+    sick_u = bal.sick_used if bal.sick_used is not None else 0.0
+    unpaid_u = bal.unpaid_used if bal.unpaid_used is not None else 0.0
+
     return LeaveBalanceOut(
         year=bal.year,
-        paid_allocated=bal.paid_allocated,
-        paid_used=bal.paid_used,
-        paid_remaining=max(0.0, bal.paid_allocated - bal.paid_used),
-        sick_allocated=bal.sick_allocated,
-        sick_used=bal.sick_used,
-        sick_remaining=max(0.0, bal.sick_allocated - bal.sick_used),
-        unpaid_used=bal.unpaid_used,
+        paid_allocated=paid_alloc,
+        paid_used=paid_u,
+        paid_remaining=max(0.0, paid_alloc - paid_u),
+        sick_allocated=sick_alloc,
+        sick_used=sick_u,
+        sick_remaining=max(0.0, sick_alloc - sick_u),
+        unpaid_used=unpaid_u,
     )
 
 

@@ -193,17 +193,17 @@ export const AttendanceLeaveModule = () => {
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-slate-400">Paid Leave</span>
               <span className="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-mono">
-                {balances?.paid_allocated} Alloc
+                {balances?.paid_allocated ?? 24} Alloc
               </span>
             </div>
             <div className="my-3">
-              <span className="text-3xl font-bold text-white">{balances?.paid_remaining}</span>
+              <span className="text-3xl font-bold text-white">{balances?.paid_remaining ?? 24}</span>
               <span className="text-xs text-slate-400 ml-1.5">days left</span>
             </div>
             <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
               <div
                 className="bg-indigo-500 h-1.5 rounded-full"
-                style={{ width: `${(balances?.paid_remaining / (balances?.paid_allocated || 1)) * 100}%` }}
+                style={{ width: `${((balances?.paid_remaining ?? 24) / (balances?.paid_allocated || 24)) * 100}%` }}
               ></div>
             </div>
           </div>
@@ -212,17 +212,17 @@ export const AttendanceLeaveModule = () => {
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-slate-400">Sick Leave</span>
               <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-mono">
-                {balances?.sick_allocated} Alloc
+                {balances?.sick_allocated ?? 12} Alloc
               </span>
             </div>
             <div className="my-3">
-              <span className="text-3xl font-bold text-white">{balances?.sick_remaining}</span>
+              <span className="text-3xl font-bold text-white">{balances?.sick_remaining ?? 12}</span>
               <span className="text-xs text-slate-400 ml-1.5">days left</span>
             </div>
             <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
               <div
                 className="bg-emerald-500 h-1.5 rounded-full"
-                style={{ width: `${(balances?.sick_remaining / (balances?.sick_allocated || 1)) * 100}%` }}
+                style={{ width: `${((balances?.sick_remaining ?? 12) / (balances?.sick_allocated || 12)) * 100}%` }}
               ></div>
             </div>
           </div>
@@ -235,7 +235,7 @@ export const AttendanceLeaveModule = () => {
               </span>
             </div>
             <div className="my-3">
-              <span className="text-3xl font-bold text-white">{balances?.unpaid_used}</span>
+              <span className="text-3xl font-bold text-white">{balances?.unpaid_used ?? 0}</span>
               <span className="text-xs text-slate-400 ml-1.5">days taken</span>
             </div>
             <p className="text-[10px] text-slate-500">Requires line manager approval</p>
